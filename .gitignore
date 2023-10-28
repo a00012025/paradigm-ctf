@@ -9,3 +9,6 @@ out/
 
 # Ignore .env
 .env
+
+# Ignore original problems
+/2023-problems
