@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.0;
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@clones-with-immutable-args/src/ClonesWithImmutableArgs.sol";
@@ -30,12 +33,20 @@ contract Split is ERC721("Split", "SPLIT") {
         require(msg.sender == ownerOf(splitId), "NOT_SPLIT_OWNER");
     }
 
-    modifier validSplit(address[] memory accounts, uint32[] memory percents, uint32 relayerFee) {
+    modifier validSplit(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    ) {
         _validSplit(accounts, percents, relayerFee);
         _;
     }
 
-    function _validSplit(address[] memory accounts, uint32[] memory percents, uint32 relayerFee) private pure {
+    function _validSplit(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    ) private pure {
         require(accounts.length == percents.length, "MISMATCH_LENGTH");
 
         uint256 sum;
@@ -48,40 +59,51 @@ contract Split is ERC721("Split", "SPLIT") {
         require(relayerFee < SCALE / 10, "INVALID_RELAYER_FEE");
     }
 
-    function createSplit(address[] memory accounts, uint32[] memory percents, uint32 relayerFee)
-        external
-        returns (uint256)
-    {
+    function createSplit(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    ) external returns (uint256) {
         return _createSplit(accounts, percents, relayerFee, msg.sender);
     }
 
-    function createSplitFor(address[] memory accounts, uint32[] memory percents, uint32 relayerFee, address owner)
-        external
-        returns (uint256)
-    {
+    function createSplitFor(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee,
+        address owner
+    ) external returns (uint256) {
         return _createSplit(accounts, percents, relayerFee, owner);
     }
 
-    function _createSplit(address[] memory accounts, uint32[] memory percents, uint32 relayerFee, address owner)
-        private
-        validSplit(accounts, percents, relayerFee)
-        returns (uint256)
-    {
+    function _createSplit(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee,
+        address owner
+    ) private validSplit(accounts, percents, relayerFee) returns (uint256) {
         uint256 tokenId = nextId++;
 
-        address wallet = address(IMPLEMENTATION).clone(abi.encodePacked(address(this)));
+        address wallet = address(IMPLEMENTATION).clone(
+            abi.encodePacked(address(this))
+        );
 
-        _splitsById[tokenId] =
-            SplitData({hash: _hashSplit(accounts, percents, relayerFee), wallet: SplitWallet(payable(wallet))});
+        _splitsById[tokenId] = SplitData({
+            hash: _hashSplit(accounts, percents, relayerFee),
+            wallet: SplitWallet(payable(wallet))
+        });
 
         _mint(owner, tokenId);
 
         return tokenId;
     }
 
-    function updateSplit(uint256 splitId, address[] memory accounts, uint32[] memory percents, uint32 relayerFee)
-        external
-    {
+    function updateSplit(
+        uint256 splitId,
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    ) external {
         _updateSplit(splitId, accounts, percents, relayerFee);
     }
 
@@ -106,7 +128,10 @@ contract Split is ERC721("Split", "SPLIT") {
         _distribute(splitId, accounts, percents, relayerFee, token);
     }
 
-    function withdraw(IERC20[] calldata tokens, uint256[] calldata amounts) external {
+    function withdraw(
+        IERC20[] calldata tokens,
+        uint256[] calldata amounts
+    ) external {
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20 token = tokens[i];
             uint256 amount = amounts[i];
@@ -121,7 +146,12 @@ contract Split is ERC721("Split", "SPLIT") {
         }
     }
 
-    function _updateSplit(uint256 splitId, address[] memory accounts, uint32[] memory percents, uint32 relayerFee)
+    function _updateSplit(
+        uint256 splitId,
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    )
         private
         onlySplitOwner(splitId)
         validSplit(accounts, percents, relayerFee)
@@ -136,7 +166,11 @@ contract Split is ERC721("Split", "SPLIT") {
         uint32 relayerFee,
         IERC20 token
     ) private {
-        require(_splitsById[splitId].hash == _hashSplit(accounts, percents, relayerFee));
+        require(
+            _splitsById[splitId].hash ==
+                _hashSplit(accounts, percents, relayerFee),
+            "INVALID_SPLIT"
+        );
 
         SplitWallet wallet = _splitsById[splitId].wallet;
         uint256 storedWalletBalance = balances[address(wallet)][address(token)];
@@ -145,13 +179,15 @@ contract Split is ERC721("Split", "SPLIT") {
         uint256 totalBalance = storedWalletBalance + externalWalletBalance;
 
         if (msg.sender != ownerOf(splitId)) {
-            uint256 relayerAmount = totalBalance * relayerFee / SCALE;
+            uint256 relayerAmount = (totalBalance * relayerFee) / SCALE;
             balances[msg.sender][address(token)] += relayerAmount;
             totalBalance -= relayerAmount;
         }
 
         for (uint256 i = 0; i < accounts.length; i++) {
-            balances[accounts[i]][address(token)] += totalBalance * percents[i] / SCALE;
+            balances[accounts[i]][address(token)] +=
+                (totalBalance * percents[i]) /
+                SCALE;
         }
 
         if (storedWalletBalance > 0) {
@@ -163,11 +199,11 @@ contract Split is ERC721("Split", "SPLIT") {
         }
     }
 
-    function _hashSplit(address[] memory accounts, uint32[] memory percents, uint32 relayerFee)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function _hashSplit(
+        address[] memory accounts,
+        uint32[] memory percents,
+        uint32 relayerFee
+    ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(accounts, percents, relayerFee));
     }
 

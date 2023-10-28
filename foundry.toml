@@ -6,3 +6,4 @@ evm-version = 'shanghai'
 
 [rpc_endpoints]
 paradigm = "${PARADIGM_RPC_URL}"
+
