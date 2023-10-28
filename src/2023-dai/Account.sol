@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
 import "@clones-with-immutable-args/src/Clone.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -18,12 +21,18 @@ contract Account is Clone {
 
         require(isHealthy(amount, 0), "NOT_HEALTHY");
 
-        (bool ok,) = payable(msg.sender).call{value: amount}(hex"");
+        (bool ok, ) = payable(msg.sender).call{value: amount}(hex"");
         require(ok, "TRANSFER_FAILED");
     }
 
-    function increaseDebt(address operator, uint256 amount, string calldata memo) external {
-        SystemConfiguration configuration = SystemConfiguration(_getArgAddress(0));
+    function increaseDebt(
+        address operator,
+        uint256 amount,
+        string calldata memo
+    ) external {
+        SystemConfiguration configuration = SystemConfiguration(
+            _getArgAddress(0)
+        );
         require(configuration.isAuthorized(msg.sender), "NOT_AUTHORIZED");
 
         require(operator == _getArgAddress(20), "ONLY_ACCOUNT_HOLDER");
@@ -36,7 +45,9 @@ contract Account is Clone {
     }
 
     function decreaseDebt(uint256 amount, string calldata memo) external {
-        SystemConfiguration configuration = SystemConfiguration(_getArgAddress(0));
+        SystemConfiguration configuration = SystemConfiguration(
+            _getArgAddress(0)
+        );
         require(configuration.isAuthorized(msg.sender), "NOT_AUTHORIZED");
 
         debt -= amount;
@@ -44,45 +55,69 @@ contract Account is Clone {
         emit DebtDecreased(amount, memo);
     }
 
-    function isHealthy(uint256 collateralDecrease, uint256 debtIncrease) public view returns (bool) {
-        SystemConfiguration configuration = SystemConfiguration(_getArgAddress(0));
+    function isHealthy(
+        uint256 collateralDecrease,
+        uint256 debtIncrease
+    ) public view returns (bool) {
+        SystemConfiguration configuration = SystemConfiguration(
+            _getArgAddress(0)
+        );
 
         uint256 totalBalance = address(this).balance - collateralDecrease;
         uint256 totalDebt = debt + debtIncrease;
 
-        (, int256 ethPriceInt,,,) = AggregatorV3Interface(configuration.getEthUsdPriceFeed()).latestRoundData();
+        (, int256 ethPriceInt, , , ) = AggregatorV3Interface(
+            configuration.getEthUsdPriceFeed()
+        ).latestRoundData();
         if (ethPriceInt <= 0) return false;
 
         uint256 ethPrice = uint256(ethPriceInt);
 
-        return totalBalance * ethPrice / 1e8 >= totalDebt * configuration.getCollateralRatio() / 10000;
+        return
+            (totalBalance * ethPrice) / 1e8 >=
+            (totalDebt * configuration.getCollateralRatio()) / 10000;
     }
 
-    function recoverAccount(address newOwner, address[] memory newRecoveryAccounts, bytes[] memory signatures)
-        external
-        returns (Account)
-    {
+    function recoverAccount(
+        address newOwner,
+        address[] memory newRecoveryAccounts,
+        bytes[] memory signatures
+    ) external returns (Account) {
         require(isHealthy(0, 0), "UNHEALTHY_ACCOUNT");
 
-        bytes32 signHash = keccak256(abi.encodePacked(block.chainid, _getArgAddress(20), newOwner, newRecoveryAccounts));
+        bytes32 signHash = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                _getArgAddress(20),
+                newOwner,
+                newRecoveryAccounts
+            )
+        );
 
         uint256 numRecoveryAccounts = _getArgUint256(40);
         require(signatures.length == numRecoveryAccounts, "INCORRECT_LENGTH");
 
         for (uint256 i = 0; i < numRecoveryAccounts; i++) {
             require(
-                SignatureChecker.isValidSignatureNow(_getArgAddress(72 + 32 * i), signHash, signatures[i]),
+                SignatureChecker.isValidSignatureNow(
+                    _getArgAddress(72 + 32 * i),
+                    signHash,
+                    signatures[i]
+                ),
                 "INVALID_SIGNATURE"
             );
         }
 
-        SystemConfiguration configuration = SystemConfiguration(_getArgAddress(0));
+        SystemConfiguration configuration = SystemConfiguration(
+            _getArgAddress(0)
+        );
 
         uint256 currentDebt = debt;
         debt = 0;
 
-        return AccountManager(configuration.getAccountManager()).migrateAccount{value: address(this).balance}(
-            newOwner, newRecoveryAccounts, currentDebt
-        );
+        return
+            AccountManager(configuration.getAccountManager()).migrateAccount{
+                value: address(this).balance
+            }(newOwner, newRecoveryAccounts, currentDebt);
     }
 }
