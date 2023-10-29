@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./Account.sol";
@@ -19,7 +22,9 @@ contract SystemConfiguration is Ownable {
         collateralRatio = 15000;
     }
 
-    function updateAccountImplementation(address newImplementation) external onlyOwner {
+    function updateAccountImplementation(
+        address newImplementation
+    ) external onlyOwner {
         accountImplementation = newImplementation;
     }
 
@@ -31,7 +36,9 @@ contract SystemConfiguration is Ownable {
         stablecoin = newStablecoin;
     }
 
-    function updateAccountManager(address newAccountManager) external onlyOwner {
+    function updateAccountManager(
+        address newAccountManager
+    ) external onlyOwner {
         accountManager = newAccountManager;
     }
 
@@ -39,7 +46,10 @@ contract SystemConfiguration is Ownable {
         collateralRatio = newRatio;
     }
 
-    function updateSystemContract(address target, bool authorized) external onlyOwner {
+    function updateSystemContract(
+        address target,
+        bool authorized
+    ) external onlyOwner {
         _systemContracts[target] = authorized;
     }
 

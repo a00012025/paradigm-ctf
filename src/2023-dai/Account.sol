@@ -66,9 +66,13 @@ contract Account is Clone {
         uint256 totalBalance = address(this).balance - collateralDecrease;
         uint256 totalDebt = debt + debtIncrease;
 
+        AggregatorV3Interface(configuration.getEthUsdPriceFeed())
+            .latestRoundData();
+
         (, int256 ethPriceInt, , , ) = AggregatorV3Interface(
             configuration.getEthUsdPriceFeed()
         ).latestRoundData();
+
         if (ethPriceInt <= 0) return false;
 
         uint256 ethPrice = uint256(ethPriceInt);
